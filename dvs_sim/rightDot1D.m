@@ -12,7 +12,7 @@ function [ xs, ys, ts, ps ] = rightDot1D( Tms, ret_length, speed )
 %dot_speed = 0.2;       % pixels / ms
 
 num_spikes = Tms * speed;
-ts = (1:num_spikes) / speed;
+ts = (1:num_spikes) / speed * 1000; % convert to us
 xs = mod(0:num_spikes - 1, ret_length);
 ys = ones(size(xs)) - 1;  % Make zero indexing to reflect DVS
 ps = ceil(rand(size(xs)) * 2 - 1);

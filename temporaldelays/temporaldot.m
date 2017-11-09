@@ -5,23 +5,32 @@
 %       - Changed to a 1D input 
 %       - 
 
+%   TODO
+%       - Set up post
+%       - Set up delays
+%       - Feed data in
+%
+
+
 clear
 addpath('../dvs_sim/')
 rand('seed',1);
 
 sim_time_ms = 0.5 * 1000;
-resolution = 32;
-input_size = resolution;
+%resolution = 32;
+%input_size = resolution;
+input_size = 4;
 
-field_size = 8;
-delay_distribution = repmat(1:field_size, field_size, 1);
-N_fields_X = resolution / field_size;
-N_fields_Y = resolution / field_size;
+%field_size = 8;
+%delay_distribution = repmat(1:field_size, field_size, 1);
+delay_distrib = 1:3;
+%N_fields_X = resolution / field_size;
+%N_fields_Y = resolution / field_size;
 
-M = field_size * field_size;
-D = 20;
+M = 3;
+D = 3;
 N_inp = input_size;
-N_hid = N_fields_X * N_fields_Y; % 1 neuron per field
+N_hid = input_size - 4; % Lose one on each end
 N = N_inp + N_hid;
 a = [0.02*ones(N_inp,1);    0.1*ones(N_hid,1)];
 d = [   8*ones(N_inp,1);    2*ones(N_hid,1)];
@@ -30,49 +39,76 @@ sm=10;
 %% Loading data and preprocessing
 rate = 25e0;
 %[xs, ys, ts, ps] = leftPanDVS( rate, sim_time_ms, resolution );
-[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, 32, 0.2 );
+[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 0.2 );
 xs = xs + 1; ys = ys + 1;           % Correct zero indexing
 ts = ceil(ts / 1000);               % Convert ts to ms
-inp = sub2ind([resolution,resolution], xs, ys);   % Flattern 2D array to neuron indexes
+inp = xs;  % xs is which neuron to fire
+%inp = sub2ind([resolution,resolution], xs, ys);   % Flattern 2D array to neuron indexes
 % Now ind(i) spiked at ts(i)
 % size(ind) == size(ts)
 subplot(2, 2, 1);
-plot3(xs, ys, ts, '.k')
+plot(ts, xs, '.k')
 title('Input data')
-xlabel('xs');
-ylabel('ys');
-zlabel('ts');
+xlabel('time (ms)');
+ylabel('xpos');
 
 
 %% Build Model
 %[delay_xs, delay_ys] = ind2sub([N_fields_X, N_fields_Y], 1:N_hid);
-[delay_xs, delay_ys] = ind2sub([field_size, field_size], 1:M);
+%[delay_xs, delay_ys] = ind2sub([field_size, field_size], 1:M);
 
 delays = cell(N,D);
 post = zeros(N, M); 
+delay_pattern = 1:3; 
+
+for n = 1 : N_inp
+    delays(n, 1:D) = num2cell(1:M);
+    post(n, 1:M) = n + N_inp + delay_pattern - 1;
+end
+
+
+
+
+for n = 1 : N_inp  % case n = 1  
+    % DELAYS
+
+    % 1 connects with delays [1, 2, 3] to synapses [1, 2, 3]
+    delays(n, delay_pattern) = num2cell(1:M);
+    
+    % POST 
+    % case   1 +    32   +  [1 , 2, 3]   - 2 = [32, 33, 34]
+    post_n = n + N_inp + delay_pattern - 1;  % -2 for matlab indexing
+    % for 1, synapses [1, 2, 3] connect to [32, 33, 34]
+    post(n, 1:M) = post_n;
+    
+end
+
+
+
+
+
+
+
 for j=1:N_hid
     post_idx = j + N_inp;
 
     % i's jth postsynaptic neuron is post(i, j)
-    %post(i,) = ;  % must be in last 200
-    %jx = repmat([1:field_size]', field_size, 1);
-    %jy = repmat([1:field_size]', field_size, 1);
-    %delay_xs, delay_ys = ind2sub([N_fields_X, N_fields_Y], 1:N_hid);
-    [jx_off, jy_off] = ind2sub([N_fields_X, N_fields_Y], j);
-    jx = (jx_off-1)*field_size + delay_xs;
-    jy = (jy_off-1)*field_size + delay_ys;
+    %[jx_off, jy_off] = ind2sub([N_fields_X, N_fields_Y], j);
+    %jx = (jx_off-1)*field_size + delay_xs;
+    %jy = (jy_off-1)*field_size + delay_ys;
     
     %[jx; jy]
-    inp_idxs = sub2ind([resolution,resolution], jx, jy);
+    %inp_idxs = sub2ind([resolution,resolution], jx, jy);
+    delay_pattern = 1:3;
+    inp_idxs = (j - 1) + delay_pattern;  % index from 0
     post(inp_idxs,:) = post_idx; 
     
     for i=1:field_size
+        %elays{inp_idxs
         % Delay from i to j (j is index into post), with value D*rand
-        %delays{i, ceil(D*rand)}(end+1) = j; 
         % post_j is the indices in post that i connect to.
-        post_j = (i-1) * field_size + 1 : i * field_size;
-        %delays(inp_idxs(post_j), field_size - i + 1) = num2cell(post_j); 
-        delays(inp_idxs(post_j), i ) = num2cell(post_j);
+        %post_j = (i-1) * field_size + 1 : i * field_size;
+        %delays(inp_idxs(post_j), i ) = num2cell(post_j);
     end;
 end
 
