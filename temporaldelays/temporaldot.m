@@ -13,13 +13,14 @@
 
 
 clear
+clf
 addpath('../dvs_sim/')
 rand('seed',1);
 
-sim_time_ms = 0.5 * 1000;
+sim_time_ms = 0.220 * 1000;
 %resolution = 32;
 %input_size = resolution;
-input_size = 4;
+input_size = 16;
 
 %field_size = 8;
 %delay_distribution = repmat(1:field_size, field_size, 1);
@@ -30,89 +31,34 @@ delay_distrib = 1:3;
 M = 3;
 D = 3;
 N_inp = input_size;
-N_hid = input_size - 4; % Lose one on each end
+N_hid = input_size - 2; % Lose one on each end
 N = N_inp + N_hid;
 a = [0.02*ones(N_inp,1);    0.1*ones(N_hid,1)];
 d = [   8*ones(N_inp,1);    2*ones(N_hid,1)];
 sm=10;
+v_thres = -55;
 
 %% Loading data and preprocessing
 rate = 25e0;
 %[xs, ys, ts, ps] = leftPanDVS( rate, sim_time_ms, resolution );
-[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 0.2 );
+[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 1 );
 xs = xs + 1; ys = ys + 1;           % Correct zero indexing
+%xs = input_size - xs + 1;  % flip
 ts = ceil(ts / 1000);               % Convert ts to ms
 inp = xs;  % xs is which neuron to fire
 %inp = sub2ind([resolution,resolution], xs, ys);   % Flattern 2D array to neuron indexes
 % Now ind(i) spiked at ts(i)
 % size(ind) == size(ts)
 subplot(2, 2, 1);
-plot(ts, xs, '.k')
+plot(xs, ts, '.k')
 title('Input data')
-xlabel('time (ms)');
-ylabel('xpos');
+ylabel('time (ms)');
+xlabel('xpos');
 
 
 %% Build Model
-%[delay_xs, delay_ys] = ind2sub([N_fields_X, N_fields_Y], 1:N_hid);
-%[delay_xs, delay_ys] = ind2sub([field_size, field_size], 1:M);
-% 
-% delays = cell(N,D);
-% post = zeros(N, M); 
-% delay_pattern = 1:3; 
-% 
-% for n = 1 : N_inp
-%     delays(n, 1:D) = num2cell(1:M);
-%     post(n, 1:M) = n + N_inp + delay_pattern - 1;
-% end
-% 
-% 
-% 
-% 
-% for n = 1 : N_inp  % case n = 1  
-%     % DELAYS
-% 
-%     % 1 connects with delays [1, 2, 3] to synapses [1, 2, 3]
-%     delays(n, delay_pattern) = num2cell(1:M);
-%     
-%     % POST 
-%     % case   1 +    32   +  [1 , 2, 3]   - 2 = [32, 33, 34]
-%     post_n = n + N_inp + delay_pattern - 1;  % -2 for matlab indexing
-%     % for 1, synapses [1, 2, 3] connect to [32, 33, 34]
-%     post(n, 1:M) = post_n;
-%     
-% end
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% for j=1:N_hid
-%     post_idx = j + N_inp;
-% 
-%     % i's jth postsynaptic neuron is post(i, j)
-%     %[jx_off, jy_off] = ind2sub([N_fields_X, N_fields_Y], j);
-%     %jx = (jx_off-1)*field_size + delay_xs;
-%     %jy = (jy_off-1)*field_size + delay_ys;
-%     
-%     %[jx; jy]
-%     %inp_idxs = sub2ind([resolution,resolution], jx, jy);
-%     delay_pattern = 1:3;
-%     inp_idxs = (j - 1) + delay_pattern;  % index from 0
-%     post(inp_idxs,:) = post_idx; 
-%     
-%     for i=1:field_size
-%         %elays{inp_idxs
-%         % Delay from i to j (j is index into post), with value D*rand
-%         % post_j is the indices in post that i connect to.
-%         %post_j = (i-1) * field_size + 1 : i * field_size;
-%         %delays(inp_idxs(post_j), i ) = num2cell(post_j);
-%     end;
-% end
-
 [delays, post] = rightDetector(N_inp, N_hid, D);
+
 
 %% Execution
 w = 6;
@@ -122,7 +68,7 @@ sd=zeros(N,M);                          % their derivatives
 % Make links at postsynaptic targets to the presynaptic weights
 pre = cell(N,1);
 aux = cell(N,1);
-for i=N_inp:N_hid
+for i=N_inp
     for j=1:D
         for k=1:length(delays{i,j})
             pre{post(i, delays{i, j}(k))}(end+1) = N*(delays{i, j}(k)-1)+i;
@@ -147,15 +93,15 @@ for sec=1:sim_time_s
     I=zeros(N,1); 
     
     % collect input from sensor
-    in_fired = zeros(input_size, 1);      % input neurons firing
+    %in_fired = zeros(input_size, 1);      % input neurons firing
     time = (sec-1) * 1000 + t; 
     %in_fired(inp(ts <= time & ts > time - dt)) = 1;
-    in_fired(inp(ts == time)) = 1;
+    %in_fired(inp(ts == time)) = 0;
     %size(inp(ts == time))
     v_trace(:, t) = v;
     
     
-    fired = [find(v>=30); inp(ts == time)];                % indices of fired neurons
+    fired = [find(v>=v_thres); inp(ts == time)];                % indices of fired neurons
     %fired = in_fired;  % Input should only fire when added here
     %size(fired)
     v(fired)=-65;  
@@ -186,27 +132,42 @@ for sec=1:sim_time_s
     %STDP(:,t+D+1)=0.95*STDP(:,t+D);     % tau = 20 ms
   end;
   %% After 1 second plot how the second layer reacted during time
-  subplot(2, 2, 3);
-  filter = find(firings(:, 2) > N_inp);
+  subplot(2, 1, 1);
+  filter = find(firings(:, 2)>N_inp);
   l2_spike_idxs = firings(filter, 2);
   l2_spike_times = firings(filter, 1);
-  %[l2_xs, l2_ys] = ind2sub([N_fields_X, N_fields_Y], l2_spike_idxs - N_inp);
-  %plot3(l2_xs, l2_ys, l2_spike_times, '.k');
-  %title('Left detector layer')
-  %xlabel('xs');
-  %ylabel('ys');
-  %zlabel('ts');
+  plot(firings(:,1),firings(:,2),'.','MarkerSize', 8);  % Plot all
+  hold on
+  plot(l2_spike_times, l2_spike_idxs, '.r','MarkerSize', 8)  % Replot layer 2 in red
+  axis([0 sim_time_ms 0 N]); drawnow;
+  title('Full network response')
+  xlabel('Time [ms]')
+  ylabel('Neuron number')
+  legend({'L1', 'L2'})
+
   
-  subplot(2, 2, 2);
-  plot(firings(:,1),firings(:,2),'.');
-  axis([0 1000 0 N]); drawnow;
-  %STDP(:,1:D+1)=STDP(:,1001:1001+D);
-  post_idxs = find(firings(:,1) > 1001-D);
-  firings=[-D 0;firings(post_idxs,1)-1000,firings(post_idxs,2)];
+%   subplot(2, 2, 3);
+%   plot(firings(:,1),firings(:,2),'.');
+%   axis([0 sim_time_ms 0 N]); drawnow;
+%   %STDP(:,1:D+1)=STDP(:,1001:1001+D);
+%   post_idxs = find(firings(:,1) > 1001-D);
+%   firings=[-D 0;firings(post_idxs,1)-1000,firings(post_idxs,2)];
   %s(1:N_inp,:)=max(0,min(sm,0.01+s(1:N_inp,:)+sd(1:N_inp,:)));
   %sd=0.9*sd;
   
-
+  subplot(2, 1, 2);
+  plot(v_trace(18, :), 'r')
+  hold on
+  plot(v_trace(2, :), 'g')
+  plot(v_trace(3, :), 'b')
+  plot(v_trace(4, :), 'y')
+  %refline([0 v_thres]);
+  plot( get( gca, 'Xlim' ), [v_thres v_thres], '--k', 'LineWidth',2)
+  legend({'19', '2', '3', '4'})
+  axis([-Inf sim_time_ms -Inf Inf]); drawnow;
+  title('Voltage trace of some dots')
+  xlabel('Time [ms]')
+  ylabel('Voltage [mV]')
   
 end;
 
