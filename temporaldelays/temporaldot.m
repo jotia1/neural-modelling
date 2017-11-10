@@ -56,61 +56,63 @@ ylabel('xpos');
 %% Build Model
 %[delay_xs, delay_ys] = ind2sub([N_fields_X, N_fields_Y], 1:N_hid);
 %[delay_xs, delay_ys] = ind2sub([field_size, field_size], 1:M);
+% 
+% delays = cell(N,D);
+% post = zeros(N, M); 
+% delay_pattern = 1:3; 
+% 
+% for n = 1 : N_inp
+%     delays(n, 1:D) = num2cell(1:M);
+%     post(n, 1:M) = n + N_inp + delay_pattern - 1;
+% end
+% 
+% 
+% 
+% 
+% for n = 1 : N_inp  % case n = 1  
+%     % DELAYS
+% 
+%     % 1 connects with delays [1, 2, 3] to synapses [1, 2, 3]
+%     delays(n, delay_pattern) = num2cell(1:M);
+%     
+%     % POST 
+%     % case   1 +    32   +  [1 , 2, 3]   - 2 = [32, 33, 34]
+%     post_n = n + N_inp + delay_pattern - 1;  % -2 for matlab indexing
+%     % for 1, synapses [1, 2, 3] connect to [32, 33, 34]
+%     post(n, 1:M) = post_n;
+%     
+% end
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% for j=1:N_hid
+%     post_idx = j + N_inp;
+% 
+%     % i's jth postsynaptic neuron is post(i, j)
+%     %[jx_off, jy_off] = ind2sub([N_fields_X, N_fields_Y], j);
+%     %jx = (jx_off-1)*field_size + delay_xs;
+%     %jy = (jy_off-1)*field_size + delay_ys;
+%     
+%     %[jx; jy]
+%     %inp_idxs = sub2ind([resolution,resolution], jx, jy);
+%     delay_pattern = 1:3;
+%     inp_idxs = (j - 1) + delay_pattern;  % index from 0
+%     post(inp_idxs,:) = post_idx; 
+%     
+%     for i=1:field_size
+%         %elays{inp_idxs
+%         % Delay from i to j (j is index into post), with value D*rand
+%         % post_j is the indices in post that i connect to.
+%         %post_j = (i-1) * field_size + 1 : i * field_size;
+%         %delays(inp_idxs(post_j), i ) = num2cell(post_j);
+%     end;
+% end
 
-delays = cell(N,D);
-post = zeros(N, M); 
-delay_pattern = 1:3; 
-
-for n = 1 : N_inp
-    delays(n, 1:D) = num2cell(1:M);
-    post(n, 1:M) = n + N_inp + delay_pattern - 1;
-end
-
-
-
-
-for n = 1 : N_inp  % case n = 1  
-    % DELAYS
-
-    % 1 connects with delays [1, 2, 3] to synapses [1, 2, 3]
-    delays(n, delay_pattern) = num2cell(1:M);
-    
-    % POST 
-    % case   1 +    32   +  [1 , 2, 3]   - 2 = [32, 33, 34]
-    post_n = n + N_inp + delay_pattern - 1;  % -2 for matlab indexing
-    % for 1, synapses [1, 2, 3] connect to [32, 33, 34]
-    post(n, 1:M) = post_n;
-    
-end
-
-
-
-
-
-
-
-for j=1:N_hid
-    post_idx = j + N_inp;
-
-    % i's jth postsynaptic neuron is post(i, j)
-    %[jx_off, jy_off] = ind2sub([N_fields_X, N_fields_Y], j);
-    %jx = (jx_off-1)*field_size + delay_xs;
-    %jy = (jy_off-1)*field_size + delay_ys;
-    
-    %[jx; jy]
-    %inp_idxs = sub2ind([resolution,resolution], jx, jy);
-    delay_pattern = 1:3;
-    inp_idxs = (j - 1) + delay_pattern;  % index from 0
-    post(inp_idxs,:) = post_idx; 
-    
-    for i=1:field_size
-        %elays{inp_idxs
-        % Delay from i to j (j is index into post), with value D*rand
-        % post_j is the indices in post that i connect to.
-        %post_j = (i-1) * field_size + 1 : i * field_size;
-        %delays(inp_idxs(post_j), i ) = num2cell(post_j);
-    end;
-end
+[delays, post] = rightDetector(N_inp, N_hid, D);
 
 %% Execution
 w = 6;
@@ -188,12 +190,12 @@ for sec=1:sim_time_s
   filter = find(firings(:, 2) > N_inp);
   l2_spike_idxs = firings(filter, 2);
   l2_spike_times = firings(filter, 1);
-  [l2_xs, l2_ys] = ind2sub([N_fields_X, N_fields_Y], l2_spike_idxs - N_inp);
-  plot3(l2_xs, l2_ys, l2_spike_times, '.k');
-  title('Left detector layer')
-  xlabel('xs');
-  ylabel('ys');
-  zlabel('ts');
+  %[l2_xs, l2_ys] = ind2sub([N_fields_X, N_fields_Y], l2_spike_idxs - N_inp);
+  %plot3(l2_xs, l2_ys, l2_spike_times, '.k');
+  %title('Left detector layer')
+  %xlabel('xs');
+  %ylabel('ys');
+  %zlabel('ts');
   
   subplot(2, 2, 2);
   plot(firings(:,1),firings(:,2),'.');
