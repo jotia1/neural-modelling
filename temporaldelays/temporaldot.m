@@ -39,18 +39,15 @@ sm=10;
 v_thres = -55;
 
 %% Loading data and preprocessing
-rate = 25e0;
-%[xs, ys, ts, ps] = leftPanDVS( rate, sim_time_ms, resolution );
-[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 1 );
+%[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 1 );
+[ xs, ys, ts, ps ] = twoDot1D( sim_time_ms, input_size, 1 );
 xs = xs + 1; ys = ys + 1;           % Correct zero indexing
-%xs = input_size - xs + 1;  % flip
 ts = ceil(ts / 1000);               % Convert ts to ms
 inp = xs;  % xs is which neuron to fire
-%inp = sub2ind([resolution,resolution], xs, ys);   % Flattern 2D array to neuron indexes
-% Now ind(i) spiked at ts(i)
-% size(ind) == size(ts)
-subplot(2, 2, 1);
-plot(xs, ts, '.k')
+
+% Plot
+%subplot(2, 2, 1);
+plot(inp, ts, '.k')
 title('Input data')
 ylabel('time (ms)');
 xlabel('xpos');
@@ -101,7 +98,7 @@ for sec=1:sim_time_s
     v_trace(:, t) = v;
     
     
-    fired = [find(v>=v_thres); inp(ts == time)];                % indices of fired neurons
+    fired = [find(v>=v_thres); inp(ts == time)'];                % indices of fired neurons
     %fired = in_fired;  % Input should only fire when added here
     %size(fired)
     v(fired)=-65;  
@@ -155,15 +152,17 @@ for sec=1:sim_time_s
   %s(1:N_inp,:)=max(0,min(sm,0.01+s(1:N_inp,:)+sd(1:N_inp,:)));
   %sd=0.9*sd;
   
+  out_neuron = 19;
+  in_neurons = [2, 3, 4] + (out_neuron-19);
   subplot(2, 1, 2);
-  plot(v_trace(18, :), 'r')
+  plot(v_trace(out_neuron, :), 'r')
   hold on
-  plot(v_trace(2, :), 'g')
-  plot(v_trace(3, :), 'b')
-  plot(v_trace(4, :), 'y')
+  plot(v_trace(in_neurons(1), :), 'g')
+  plot(v_trace(in_neurons(2), :), 'b')
+  plot(v_trace(in_neurons(3), :), 'y')
   %refline([0 v_thres]);
   plot( get( gca, 'Xlim' ), [v_thres v_thres], '--k', 'LineWidth',2)
-  legend({'19', '2', '3', '4'})
+  legend(cellstr(num2str([out_neuron, in_neurons]', '%-d')))
   axis([-Inf sim_time_ms -Inf Inf]); drawnow;
   title('Voltage trace of some dots')
   xlabel('Time [ms]')
