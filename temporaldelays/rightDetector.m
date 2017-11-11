@@ -16,9 +16,9 @@ delays(1, M) = num2cell(1:1); % 1 has one synapse, with delay M
 post(1, 1) = 1 + N_inp + [3:3] - M;
 delays(2, M-1:M) = num2cell(1:2); % 2 has two synapses
 post(2, 1:2) = 2 + N_inp + [2:3] - M;
-delays(N_inp, M) = num2cell(1:1); % N_inp'th has one synapse
+delays(N_inp, 1) = num2cell(1:1); % N_inp'th has one synapse
 post(N_inp, 1) = N_inp + N_inp + [1:1] - M;
-delays(N_inp-1, M-1:M) = num2cell(1:2); % N_inp-1'th has 2 synpases
+delays(N_inp-1, 1:2) = num2cell(1:2); % N_inp-1'th has 2 synpases
 post(N_inp-1, 1:2) = N_inp - 1 + N_inp + [1:2] - M;
 
 
