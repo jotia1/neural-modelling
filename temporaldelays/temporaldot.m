@@ -17,7 +17,7 @@ clf
 addpath('../dvs_sim/')
 rand('seed',1);
 
-sim_time_ms = 0.220 * 1000;
+sim_time_ms = .05 * 1000;
 %resolution = 32;
 %input_size = resolution;
 input_size = 16;
@@ -39,8 +39,8 @@ sm=10;
 v_thres = -55;
 
 %% Loading data and preprocessing
-%[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 1 );
-[ xs, ys, ts, ps ] = twoDot1D( sim_time_ms, input_size, 1 );
+[ xs, ys, ts, ps ] = rightDot1D( sim_time_ms, input_size, 1 );
+%[ xs, ys, ts, ps ] = twoDot1D( sim_time_ms/2, input_size, 1 );
 xs = xs + 1; ys = ys + 1;           % Correct zero indexing
 ts = ceil(ts / 1000);               % Convert ts to ms
 inp = xs;  % xs is which neuron to fire
@@ -55,11 +55,12 @@ xlabel('xpos');
 
 %% Build Model
 [delays, post] = rightDetector(N_inp, N_hid, D);
+%[ delays, post ] = reservoir( N_inp, N_hid, D, M );
 
 
 %% Execution
 w = 6;
-s=[w*ones(N_inp, M);w*ones(N_hid, M)];         % synaptic weights
+s=[w*ones(N_inp, M);-5*ones(N_hid, M)];         % synaptic weights
 sd=zeros(N,M);                          % their derivatives
 
 % Make links at postsynaptic targets to the presynaptic weights
@@ -75,7 +76,7 @@ for i=N_inp
 end;
   
 
-%STDP = zeros(N,1001+D);
+STDP = zeros(N,1001+D);
 v = -65*ones(N,1);                      % initial values
 u = 0.2.*v;                             % initial values
 firings=[-D 0];                         % spike timings
@@ -104,10 +105,10 @@ for sec=1:sim_time_s
     v(fired)=-65;  
     u(fired)=u(fired)+d(fired);
     % STDP 
-    %STDP(fired,t+D)=0.1;
-    %for k=1:length(fired)
-    %  sd(pre{fired(k)})=sd(pre{fired(k)})+STDP(N*t+aux{fired(k)});
-    %end;
+    STDP(fired,t+D)=0.1;
+    for k=1:length(fired)
+      sd(pre{fired(k)})=sd(pre{fired(k)})+STDP(N*t+aux{fired(k)});
+    end;
     
     % firings is in the form [time, idx; time, idx; ...]
     firings=[firings;t*ones(length(fired),1),fired];
@@ -120,15 +121,16 @@ for sec=1:sim_time_s
       delay_post_idxs=delays{idx ,t-time_fired+1};
       post_idxs = post(idx, delay_post_idxs);
       I(post_idxs)=I(post_idxs)+s(idx, delay_post_idxs)';
-      %sd(idx, delay_post_idxs)=sd(idx,delay_post_idxs)-1.2*STDP(post_idxs,t+D)';
+      sd(idx, delay_post_idxs)=sd(idx,delay_post_idxs)-1.2*STDP(post_idxs,t+D)';
       k=k-1;
     end;
     v=v+0.5*((0.04*v+5).*v+140-u+I);    % for numerical 
     v=v+0.5*((0.04*v+5).*v+140-u+I);    % stability time 
     u=u+a.*(0.2*v-u);                   % step is 0.5 ms
-    %STDP(:,t+D+1)=0.95*STDP(:,t+D);     % tau = 20 ms
+    STDP(:,t+D+1)=0.95*STDP(:,t+D);     % tau = 20 ms
   end;
   %% After 1 second plot how the second layer reacted during time
+  clf
   subplot(2, 1, 1);
   filter = find(firings(:, 2)>N_inp);
   l2_spike_idxs = firings(filter, 2);
@@ -136,7 +138,7 @@ for sec=1:sim_time_s
   plot(firings(:,1),firings(:,2),'.','MarkerSize', 8);  % Plot all
   hold on
   plot(l2_spike_times, l2_spike_idxs, '.r','MarkerSize', 8)  % Replot layer 2 in red
-  axis([0 sim_time_ms 0 N]); drawnow;
+  axis([0 1000 0 N]); drawnow;
   title('Full network response')
   xlabel('Time [ms]')
   ylabel('Neuron number')
@@ -148,11 +150,11 @@ for sec=1:sim_time_s
 %   axis([0 sim_time_ms 0 N]); drawnow;
 %   %STDP(:,1:D+1)=STDP(:,1001:1001+D);
 %   post_idxs = find(firings(:,1) > 1001-D);
-%   firings=[-D 0;firings(post_idxs,1)-1000,firings(post_idxs,2)];
-  %s(1:N_inp,:)=max(0,min(sm,0.01+s(1:N_inp,:)+sd(1:N_inp,:)));
-  %sd=0.9*sd;
+  firings=[-D 0;firings(post_idxs,1)-1000,firings(post_idxs,2)];
+  s(1:N_inp,:)=max(0,min(sm,0.01+s(1:N_inp,:)+sd(1:N_inp,:)));
+  sd=0.9*sd;
   
-  out_neuron = 19;
+  out_neuron = 30;
   in_neurons = [2, 3, 4] + (out_neuron-19);
   subplot(2, 1, 2);
   plot(v_trace(out_neuron, :), 'r')
@@ -163,10 +165,11 @@ for sec=1:sim_time_s
   %refline([0 v_thres]);
   plot( get( gca, 'Xlim' ), [v_thres v_thres], '--k', 'LineWidth',2)
   legend(cellstr(num2str([out_neuron, in_neurons]', '%-d')))
-  axis([-Inf sim_time_ms -Inf Inf]); drawnow;
+  axis([-Inf 1000 -Inf Inf]); drawnow;
   title('Voltage trace of some dots')
   xlabel('Time [ms]')
   ylabel('Voltage [mV]')
+  waitforbuttonpress;
   
 end;
 
